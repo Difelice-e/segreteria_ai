@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Segreteria AI</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --border: #222222;
+    --accent: #c8f535;
+    --accent-dim: #8fb825;
+    --text: #f0f0f0;
+    --text-muted: #555;
+    --danger: #ff4444;
+    --radius: 20px;
+  }
+
+  html, body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    width: 100%;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    padding: 18px 24px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 15px;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+  }
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    transition: background 0.3s;
+  }
+  .status-dot.live { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .status-dot.sending { background: #f5a623; box-shadow: 0 0 8px #f5a623; animation: pulse 0.6s infinite alternate; }
+  .status-dot.error { background: var(--danger); }
+
+  @keyframes pulse { from { opacity: 1; } to { opacity: 0.3; } }
+
+  /* ── PANELS ── */
+  .panels {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .panel-audio {
+    border-bottom: 1px solid var(--border);
+    background: radial-gradient(ellipse at center, #161616 0%, var(--bg) 70%);
+  }
+
+  .panel-text {
+    background: var(--bg);
+  }
+
+  /* ── AUDIO PANEL ── */
+  .mic-label {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 24px;
+    transition: color 0.3s;
+  }
+  .mic-label.active { color: var(--accent); }
+
+  .mic-btn {
+    width: 88px; height: 88px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    position: relative;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none;
+  }
+
+  .mic-btn:active, .mic-btn.recording {
+    border-color: var(--accent);
+    background: #1a2200;
+    transform: scale(0.96);
+  }
+
+  .mic-btn.recording {
+    box-shadow: 0 0 0 0 rgba(200, 245, 53, 0.4);
+    animation: ripple 1.2s infinite;
+  }
+
+  @keyframes ripple {
+    0%   { box-shadow: 0 0 0 0 rgba(200,245,53,0.35); }
+    70%  { box-shadow: 0 0 0 22px rgba(200,245,53,0); }
+    100% { box-shadow: 0 0 0 0 rgba(200,245,53,0); }
+  }
+
+  .mic-icon {
+    width: 32px; height: 32px;
+    fill: none;
+    stroke: var(--text-muted);
+    stroke-width: 2;
+    stroke-linecap: round;
+    transition: stroke 0.2s;
+  }
+  .mic-btn.recording .mic-icon { stroke: var(--accent); }
+
+  .rec-timer {
+    font-size: 12px;
+    color: var(--accent);
+    margin-top: 18px;
+    letter-spacing: 0.15em;
+    height: 16px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .rec-timer.visible { opacity: 1; }
+
+  /* waveform bars */
+  .waveform {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    height: 28px;
+    margin-top: 10px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .waveform.active { opacity: 1; }
+  .bar {
+    width: 3px;
+    background: var(--accent);
+    border-radius: 2px;
+    animation: wave 0.8s ease-in-out infinite alternate;
+  }
+  .bar:nth-child(1) { animation-delay: 0s;    height: 6px; }
+  .bar:nth-child(2) { animation-delay: 0.1s;  height: 14px; }
+  .bar:nth-child(3) { animation-delay: 0.2s;  height: 20px; }
+  .bar:nth-child(4) { animation-delay: 0.05s; height: 10px; }
+  .bar:nth-child(5) { animation-delay: 0.15s; height: 24px; }
+  .bar:nth-child(6) { animation-delay: 0.25s; height: 16px; }
+  .bar:nth-child(7) { animation-delay: 0.08s; height: 8px; }
+  @keyframes wave { from { transform: scaleY(0.4); } to { transform: scaleY(1); } }
+
+  /* ── TEXT PANEL ── */
+  .text-inner {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 24px 16px;
+  }
+
+  .text-label {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  textarea {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 15px;
+    line-height: 1.6;
+    resize: none;
+    caret-color: var(--accent);
+    -webkit-appearance: none;
+  }
+
+  textarea::placeholder { color: var(--text-muted); }
+
+  .send-row {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
+  }
+
+  .send-btn {
+    background: var(--accent);
+    color: #0a0a0a;
+    border: none;
+    border-radius: 12px;
+    padding: 12px 28px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .send-btn:active { transform: scale(0.96); background: var(--accent-dim); }
+  .send-btn:disabled { opacity: 0.35; pointer-events: none; }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 20px;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    color: var(--text);
+    opacity: 0;
+    transition: all 0.3s;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 999;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .toast.ok { border-color: var(--accent); color: var(--accent); }
+  .toast.err { border-color: var(--danger); color: var(--danger); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <span class="logo">SEGRETERIA AI</span>
+    <div class="status-dot" id="dot"></div>
+  </div>
+
+  <div class="panels">
+
+    <!-- AUDIO -->
+    <div class="panel panel-audio">
+      <div class="mic-label" id="micLabel">TIENI PREMUTO PER REGISTRARE</div>
+      <button class="mic-btn" id="micBtn" aria-label="Registra audio">
+        <svg class="mic-icon" viewBox="0 0 24 24">
+          <rect x="9" y="2" width="6" height="11" rx="3"/>
+          <path d="M5 10a7 7 0 0 0 14 0"/>
+          <line x1="12" y1="19" x2="12" y2="22"/>
+          <line x1="8" y1="22" x2="16" y2="22"/>
+        </svg>
+      </button>
+      <div class="rec-timer" id="recTimer">00:00</div>
+      <div class="waveform" id="waveform">
+        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+        <div class="bar"></div>
+      </div>
+    </div>
+
+    <!-- TEXT -->
+    <div class="panel panel-text">
+      <div class="text-inner">
+        <div class="text-label">OPPURE SCRIVI</div>
+        <textarea id="textInput" placeholder="Es: Call con Luca venerdì alle 10, riunione team lunedì mattina…" rows="4"></textarea>
+        <div class="send-row">
+          <button class="send-btn" id="sendBtn">INVIA →</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const ENDPOINT = 'https://grybroker.app.n8n.cloud/webhook-test/voice-to-calendar';
+
+const dot       = document.getElementById('dot');
+const micBtn    = document.getElementById('micBtn');
+const micLabel  = document.getElementById('micLabel');
+const recTimer  = document.getElementById('recTimer');
+const waveform  = document.getElementById('waveform');
+const textInput = document.getElementById('textInput');
+const sendBtn   = document.getElementById('sendBtn');
+const toast     = document.getElementById('toast');
+
+// ── TOAST ──
+let toastTimer;
+function showToast(msg, type = '') {
+  clearTimeout(toastTimer);
+  toast.textContent = msg;
+  toast.className = 'toast show ' + type;
+  toastTimer = setTimeout(() => toast.className = 'toast', 3000);
+}
+
+// ── STATUS DOT ──
+function setDot(state) {
+  dot.className = 'status-dot ' + state;
+}
+
+// ── SEND HELPERS ──
+async function sendText(text) {
+  setDot('sending');
+  try {
+    await fetch(ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'text', message: text })
+    });
+    setDot('live');
+    showToast('✓ Messaggio inviato', 'ok');
+    textInput.value = '';
+  } catch (e) {
+    setDot('error');
+    showToast('Errore di rete', 'err');
+  }
+}
+
+async function sendAudio(blob) {
+  setDot('sending');
+  const formData = new FormData();
+  formData.append('type', 'audio');
+  formData.append('audio', blob, 'recording.webm');
+  try {
+    await fetch(ENDPOINT, { method: 'POST', body: formData });
+    setDot('live');
+    showToast('✓ Audio inviato', 'ok');
+  } catch (e) {
+    setDot('error');
+    showToast('Errore di rete', 'err');
+  }
+}
+
+// ── TEXT SEND ──
+sendBtn.addEventListener('click', () => {
+  const text = textInput.value.trim();
+  if (!text) { showToast('Scrivi qualcosa prima', 'err'); return; }
+  sendText(text);
+});
+
+// ── RECORDING ──
+let mediaRecorder, audioChunks = [], recInterval, recSeconds = 0;
+
+function formatTime(s) {
+  return String(Math.floor(s/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0');
+}
+
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioChunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    mediaRecorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      const blob = new Blob(audioChunks, { type: 'audio/webm' });
+      sendAudio(blob);
+    };
+    mediaRecorder.start();
+
+    recSeconds = 0;
+    recTimer.textContent = formatTime(0);
+    recTimer.classList.add('visible');
+    waveform.classList.add('active');
+    micBtn.classList.add('recording');
+    micLabel.textContent = 'RILASCIA PER INVIARE';
+    micLabel.classList.add('active');
+
+    recInterval = setInterval(() => {
+      recSeconds++;
+      recTimer.textContent = formatTime(recSeconds);
+    }, 1000);
+
+  } catch(e) {
+    showToast('Microfono non disponibile', 'err');
+  }
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+  clearInterval(recInterval);
+  recTimer.classList.remove('visible');
+  waveform.classList.remove('active');
+  micBtn.classList.remove('recording');
+  micLabel.textContent = 'TIENI PREMUTO PER REGISTRARE';
+  micLabel.classList.remove('active');
+}
+
+// Touch events (mobile)
+micBtn.addEventListener('touchstart', e => { e.preventDefault(); startRecording(); }, { passive: false });
+micBtn.addEventListener('touchend',   e => { e.preventDefault(); stopRecording(); },  { passive: false });
+micBtn.addEventListener('touchcancel',e => { e.preventDefault(); stopRecording(); },  { passive: false });
+
+// Mouse events (desktop test)
+micBtn.addEventListener('mousedown', startRecording);
+micBtn.addEventListener('mouseup',   stopRecording);
+micBtn.addEventListener('mouseleave',() => { if (mediaRecorder?.state === 'recording') stopRecording(); });
+
+// Enter to send text
+textInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) sendBtn.click();
+});
+</script>
+</body>
+</html>
